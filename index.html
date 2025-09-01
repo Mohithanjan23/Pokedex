@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mohithanjan’s Pokédex</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Press+Start+2P&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+    <style>
+        :root {
+            --poke-red: #FF1C1C;
+            --electric-yellow: #FFD829;
+            --grass-green: #34C759;
+            --water-blue: #1DA1F2;
+            --dark-gray: #1C1C1E;
+        }
+        body {
+            background-color: var(--dark-gray);
+            font-family: 'Inter', sans-serif;
+            color: white;
+        }
+        .font-press-start {
+            font-family: 'Press Start 2P', cursive;
+        }
+        .pokedex-screen {
+            background-image: radial-gradient(circle, #4a4a4a, #3a3a3a, #2b2b2b, #1c1c1c, #000000);
+            border: 8px solid #dedede;
+            border-radius: 1rem;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5) inset;
+        }
+        .pokemon-card {
+            perspective: 1000px;
+        }
+        .pokemon-card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+        .pokemon-card.flipped .pokemon-card-inner {
+            transform: rotateY(180deg);
+        }
+        .pokemon-card-front, .pokemon-card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            -webkit-backface-visibility: hidden;
+            backface-visibility: hidden;
+            border-radius: 0.75rem;
+        }
+        .pokemon-card-back {
+            transform: rotateY(180deg);
+        }
+        .xp-bar-container {
+            background-color: rgba(255, 255, 255, 0.2);
+            border-radius: 9999px;
+            overflow: hidden;
+        }
+        .xp-bar {
+            height: 100%;
+            border-radius: 9999px;
+            transition: width 1s ease-in-out;
+        }
+        .type-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 9999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: white;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.7);
+        }
+        /* Type Colors */
+        .normal { background-color: #A8A77A; }
+        .fire { background-color: #EE8130; }
+        .water { background-color: #6390F0; }
+        .electric { background-color: #F7D02C; }
+        .grass { background-color: #7AC74C; }
+        .ice { background-color: #96D9D6; }
+        .fighting { background-color: #C22E28; }
+        .poison { background-color: #A33EA1; }
+        .ground { background-color: #E2BF65; }
+        .flying { background-color: #A98FF3; }
+        .psychic { background-color: #F95587; }
+        .bug { background-color: #A6B91A; }
+        .rock { background-color: #B6A136; }
+        .ghost { background-color: #735797; }
+        .dragon { background-color: #6F35FC; }
+        .dark { background-color: #705746; }
+        .steel { background-color: #B7B7CE; }
+        .fairy { background-color: #D685AD; }
+
+        #quiz-modal {
+            background-color: rgba(0,0,0,0.8);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4">
+
+    <main class="w-full max-w-4xl mx-auto">
+        <header class="text-center mb-8">
+            <h1 class="font-press-start text-2xl md:text-4xl text-electric-yellow drop-shadow-lg">Mohithanjan’s Pokédex</h1>
+            <p class="text-gray-300 mt-2">Gotta Code ’Em All!</p>
+        </header>
+
+        <div class="pokedex-screen p-4 md:p-8">
+            <!-- Search and Nav -->
+            <div class="flex flex-col md:flex-row gap-4 mb-6">
+                <input type="text" id="search-bar" placeholder="Search Pokémon by name or ID..." class="flex-grow bg-gray-700 text-white placeholder-gray-400 rounded-full px-4 py-2 border-2 border-gray-600 focus:outline-none focus:ring-2 focus:ring-poke-red transition">
+                <div class="flex items-center justify-center gap-2">
+                    <button id="main-view-btn" class="bg-poke-red hover:bg-red-700 text-white font-bold py-2 px-4 rounded-full transition">Pokédex</button>
+                    <button id="quiz-mode-btn" class="bg-water-blue hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-full transition">PokéQuiz</button>
+                </div>
+            </div>
+
+            <!-- Pokémon Display -->
+            <div id="pokedex-view">
+                <div id="pokemon-display" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Pokémon cards will be injected here -->
+                </div>
+                <div id="loader" class="text-center py-12 hidden">
+                    <p class="font-press-start text-lg animate-pulse">Loading Pokémon...</p>
+                </div>
+            </div>
+            
+            <!-- Quiz View -->
+            <div id="quiz-view" class="hidden text-center">
+                 <h2 class="font-press-start text-xl text-electric-yellow mb-4">Can you beat the PokéQuiz?</h2>
+                 <p class="mb-6">Guess the winner based on type advantages!</p>
+                 <div id="quiz-content" class="flex justify-around items-center mb-6">
+                    <!-- Quiz Pokémon will be shown here -->
+                 </div>
+                 <div id="quiz-result" class="h-8 mb-4 font-bold text-lg"></div>
+                 <p>Score: <span id="quiz-score">0</span></p>
+                 <button id="next-quiz-btn" class="mt-4 bg-grass-green hover:bg-green-700 text-white font-bold py-2 px-6 rounded-full transition hidden">Next Round</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Pokémon Detail Modal -->
+    <div id="pokemon-modal" class="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 hidden z-50">
+        <div id="modal-content" class="bg-dark-gray rounded-lg w-full max-w-md max-h-full overflow-y-auto p-6 relative">
+             <!-- Content will be injected here -->
+        </div>
+    </div>
+
+
+    <script>
+        const POKEAPI_BASE_URL = 'https://pokeapi.co/api/v2/';
+        const TOTAL_POKEMON = 151; // Gen 1 for simplicity
+
+        const searchBar = document.getElementById('search-bar');
+        const pokemonDisplay = document.getElementById('pokemon-display');
+        const loader = document.getElementById('loader');
+        const modal = document.getElementById('pokemon-modal');
+        const modalContent = document.getElementById('modal-content');
+        
+        const mainViewBtn = document.getElementById('main-view-btn');
+        const quizModeBtn = document.getElementById('quiz-mode-btn');
+        const pokedexView = document.getElementById('pokedex-view');
+        const quizView = document.getElementById('quiz-view');
+        const quizContent = document.getElementById('quiz-content');
+        const quizResult = document.getElementById('quiz-result');
+        const quizScoreEl = document.getElementById('quiz-score');
+        const nextQuizBtn = document.getElementById('next-quiz-btn');
+
+        let allPokemon = [];
+        let unlockedPokemon = new Set(JSON.parse(localStorage.getItem('unlockedPokemon')) || []);
+        let quizScore = 0;
+        let quizPokemons = [];
+
+        const typeColors = {
+            normal: '#A8A77A', fire: '#EE8130', water: '#6390F0', electric: '#F7D02C',
+            grass: '#7AC74C', ice: '#96D9D6', fighting: '#C22E28', poison: '#A33EA1',
+            ground: '#E2BF65', flying: '#A98FF3', psychic: '#F95587', bug: '#A6B91A',
+            rock: '#B6A136', ghost: '#735797', dragon: '#6F35FC', dark: '#705746',
+            steel: '#B7B7CE', fairy: '#D685AD'
+        };
+        
+        const typeMatchups = {
+            normal: { weak: ['fighting'], immune: ['ghost'] },
+            fire: { weak: ['water', 'ground', 'rock'], strong: ['grass', 'ice', 'bug', 'steel'] },
+            water: { weak: ['electric', 'grass'], strong: ['fire', 'ground', 'rock'] },
+            electric: { weak: ['ground'], strong: ['water', 'flying'], immune: ['ground'] },
+            grass: { weak: ['fire', 'ice', 'poison', 'flying', 'bug'], strong: ['water', 'ground', 'rock'] },
+            ice: { weak: ['fire', 'fighting', 'rock', 'steel'], strong: ['grass', 'ground', 'flying', 'dragon'] },
+            fighting: { weak: ['flying', 'psychic', 'fairy'], strong: ['normal', 'ice', 'rock', 'dark', 'steel'] },
+            poison: { weak: ['ground', 'psychic'], strong: ['grass', 'fairy'] },
+            ground: { weak: ['water', 'grass', 'ice'], strong: ['fire', 'electric', 'poison', 'rock', 'steel'], immune: ['electric'] },
+            flying: { weak: ['electric', 'ice', 'rock'], strong: ['grass', 'fighting', 'bug'], immune: ['ground'] },
+            psychic: { weak: ['bug', 'ghost', 'dark'], strong: ['fighting', 'poison'] },
+            bug: { weak: ['fire', 'flying', 'rock'], strong: ['grass', 'psychic', 'dark'] },
+            rock: { weak: ['water', 'grass', 'fighting', 'ground', 'steel'], strong: ['fire', 'ice', 'flying', 'bug'] },
+            ghost: { weak: ['ghost', 'dark'], strong: ['psychic', 'ghost'], immune: ['normal', 'fighting'] },
+            dragon: { weak: ['ice', 'dragon', 'fairy'], strong: ['dragon'] },
+            dark: { weak: ['fighting', 'bug', 'fairy'], strong: ['psychic', 'ghost'], immune: ['psychic'] },
+            steel: { weak: ['fire', 'fighting', 'ground'], strong: ['ice', 'rock', 'fairy'], immune: ['poison'] },
+            fairy: { weak: ['poison', 'steel'], strong: ['fighting', 'dragon', 'dark'], immune: ['dragon'] }
+        };
+
+        // --- MOCK POKEMON GO DATA ---
+        // In a real app, this would come from an API.
+        const pokemonGoData = {
+            1: { bestMoveset: { fast: { name: "Vine Whip", type: "grass" }, charged: { name: "Frenzy Plant", type: "grass" } } },
+            4: { bestMoveset: { fast: { name: "Ember", type: "fire" }, charged: { name: "Blast Burn", type: "fire" } } },
+            7: { bestMoveset: { fast: { name: "Water Gun", type: "water" }, charged: { name: "Hydro Cannon", type: "water" } } },
+            25: { bestMoveset: { fast: { name: "Thunder Shock", type: "electric" }, charged: { name: "Wild Charge", type: "electric" } } },
+            149: { bestMoveset: { fast: { name: "Dragon Tail", type: "dragon" }, charged: { name: "Outrage", type: "dragon" } } },
+        };
+
+        // --- Data Fetching ---
+        const fetchAllPokemon = async () => {
+            loader.classList.remove('hidden');
+            try {
+                const response = await fetch(`${POKEAPI_BASE_URL}pokemon?limit=${TOTAL_POKEMON}`);
+                const data = await response.json();
+                const pokemonPromises = data.results.map(p => fetch(p.url).then(res => res.json()));
+                allPokemon = await Promise.all(pokemonPromises);
+                displayPokemon(allPokemon);
+            } catch (error) {
+                console.error("Failed to fetch Pokémon:", error);
+                pokemonDisplay.innerHTML = `<p class="text-poke-red text-center col-span-full">Could not load Pokémon data. Please try again later.</p>`;
+            } finally {
+                loader.classList.add('hidden');
+            }
+        };
+
+        // --- Display Logic ---
+        const displayPokemon = (pokemonList) => {
+            pokemonDisplay.innerHTML = '';
+            pokemonList.forEach(pokemon => {
+                const isUnlocked = unlockedPokemon.has(pokemon.id);
+                const card = document.createElement('div');
+                card.className = `pokemon-card h-48 cursor-pointer group`;
+                card.dataset.id = pokemon.id;
+
+                const primaryType = pokemon.types[0].type.name;
+                const cardColor = typeColors[primaryType] || '#A8A77A';
+
+                card.innerHTML = `
+                    <div class="pokemon-card-inner">
+                        <div class="pokemon-card-front p-4 rounded-lg flex flex-col justify-between" style="background: linear-gradient(to top right, ${cardColor}, #1C1C1E 80%);">
+                            ${isUnlocked ? `
+                                <div class="flex justify-between items-start">
+                                    <span class="font-bold text-lg">#${String(pokemon.id).padStart(3, '0')}</span>
+                                    <h2 class="capitalize font-bold text-xl">${pokemon.name}</h2>
+                                </div>
+                                <img src="${pokemon.sprites.other['official-artwork'].front_default}" alt="${pokemon.name}" class="w-32 h-32 mx-auto group-hover:scale-110 transition-transform duration-300">
+                                <div class="flex justify-center gap-2">
+                                    ${pokemon.types.map(t => `<span class="type-badge ${t.type.name}">${t.type.name}</span>`).join('')}
+                                </div>
+                            ` : `
+                                <div class="flex flex-col items-center justify-center h-full">
+                                    <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${pokemon.id}.png" alt="Unknown Pokémon" class="w-32 h-32 mx-auto filter brightness-0">
+                                    <p class="font-press-start text-sm mt-2">???</p>
+                                </div>
+                            `}
+                        </div>
+                         <div class="pokemon-card-back p-4 rounded-lg flex flex-col justify-center items-center" style="background: linear-gradient(to top left, ${cardColor}, #1C1C1E 80%);">
+                            <p class="text-center">Click to view details!</p>
+                        </div>
+                    </div>
+                `;
+                card.addEventListener('click', () => handleCardClick(pokemon.id));
+                pokemonDisplay.appendChild(card);
+            });
+        };
+
+        const handleCardClick = (id) => {
+            const card = document.querySelector(`[data-id='${id}']`);
+            if (!unlockedPokemon.has(id)) {
+                unlockPokemon(id);
+                card.classList.add('flipped');
+                setTimeout(() => {
+                    displayPokemon(allPokemon.filter(p => p.name.includes(searchBar.value.toLowerCase()) || String(p.id).includes(searchBar.value)));
+                    showPokemonDetail(id);
+                }, 600);
+            } else {
+                 card.classList.add('flipped');
+                 setTimeout(() => {
+                    showPokemonDetail(id);
+                    card.classList.remove('flipped');
+                }, 800);
+            }
+        };
+
+        const unlockPokemon = (id) => {
+            if (!unlockedPokemon.has(id)) {
+                unlockedPokemon.add(id);
+                localStorage.setItem('unlockedPokemon', JSON.stringify([...unlockedPokemon]));
+                confetti({
+                    particleCount: 150,
+                    spread: 90,
+                    origin: { y: 0.6 }
+                });
+            }
+        };
+
+        const showPokemonDetail = async (id) => {
+            const pokemon = allPokemon.find(p => p.id === id);
+            if (!pokemon) return;
+
+            const speciesResponse = await fetch(pokemon.species.url);
+            const speciesData = await speciesResponse.json();
+            const flavorTextEntry = speciesData.flavor_text_entries.find(entry => entry.language.name === 'en');
+            const flavorText = flavorTextEntry ? flavorTextEntry.flavor_text.replace(/[\n\f]/g, ' ') : "No description available.";
+            
+            const primaryType = pokemon.types[0].type.name;
+            const cardColor = typeColors[primaryType] || '#A8A77A';
+
+            // Check for Pokémon GO data
+            const goData = pokemonGoData[id];
+            let goStatsHtml = '';
+            if (goData) {
+                goStatsHtml = `
+                <div class="mt-6 pt-4 border-t border-gray-700">
+                    <h3 class="font-bold text-lg mb-2 text-center text-electric-yellow">Pokémon GO Stats</h3>
+                    <div class="text-center">
+                        <h4 class="font-semibold mb-2">Best Moveset</h4>
+                        <div class="flex justify-center items-center gap-4">
+                            <div>
+                                <p class="text-sm text-gray-400">Fast Move</p>
+                                <p>${goData.bestMoveset.fast.name} <span class="type-badge ${goData.bestMoveset.fast.type}">${goData.bestMoveset.fast.type}</span></p>
+                            </div>
+                            <div>
+                                <p class="text-sm text-gray-400">Charged Move</p>
+                                <p>${goData.bestMoveset.charged.name} <span class="type-badge ${goData.bestMoveset.charged.type}">${goData.bestMoveset.charged.type}</span></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                `;
+            }
+
+            modalContent.innerHTML = `
+                <button id="close-modal-btn" class="absolute top-4 right-4 text-white text-2xl">&times;</button>
+                <div class="text-center">
+                    <img src="${pokemon.sprites.other['official-artwork'].front_default}" alt="${pokemon.name}" class="w-48 h-48 mx-auto -mt-20 mb-4" style="filter: drop-shadow(0 5px 15px ${cardColor});">
+                    <h2 class="text-3xl font-bold capitalize">${pokemon.name}</h2>
+                    <p class="font-bold text-gray-400">#${String(pokemon.id).padStart(3, '0')}</p>
+                    <div class="flex justify-center gap-2 my-4">
+                        ${pokemon.types.map(t => `<span class="type-badge ${t.type.name}">${t.type.name}</span>`).join('')}
+                    </div>
+                    <p class="text-sm text-gray-300 italic">${flavorText}</p>
+                </div>
+                <div class="mt-6">
+                    <h3 class="font-bold text-lg mb-2 text-center">Base Stats</h3>
+                    ${pokemon.stats.map(stat => `
+                        <div class="flex items-center my-2">
+                            <span class="w-1/3 text-sm capitalize text-gray-400">${stat.stat.name.replace('-', ' ')}</span>
+                            <div class="w-2/3 xp-bar-container h-4">
+                                <div class="xp-bar" style="width: 0%; background-color: ${cardColor};" data-value="${(stat.base_stat / 255) * 100}"></div>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                ${goStatsHtml}
+            `;
+            modal.classList.remove('hidden');
+            
+            // Animate XP bars
+            setTimeout(() => {
+                document.querySelectorAll('.xp-bar').forEach(bar => {
+                    bar.style.width = `${bar.dataset.value}%`;
+                });
+            }, 100);
+
+            document.getElementById('close-modal-btn').addEventListener('click', () => modal.classList.add('hidden'));
+        };
+
+        // --- Search Logic ---
+        searchBar.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            const filteredPokemon = allPokemon.filter(p => {
+                const nameMatch = p.name.toLowerCase().includes(searchTerm);
+                const idMatch = String(p.id).includes(searchTerm);
+                const typeMatch = p.types.some(t => t.type.name.includes(searchTerm));
+                return nameMatch || idMatch || typeMatch;
+            });
+            displayPokemon(filteredPokemon);
+        });
+        
+        // --- View Switching ---
+        mainViewBtn.addEventListener('click', () => {
+            pokedexView.classList.remove('hidden');
+            quizView.classList.add('hidden');
+            mainViewBtn.classList.add('bg-poke-red');
+            mainViewBtn.classList.remove('bg-gray-500');
+            quizModeBtn.classList.add('bg-water-blue');
+            quizModeBtn.classList.remove('bg-gray-500');
+        });
+
+        quizModeBtn.addEventListener('click', () => {
+            pokedexView.classList.add('hidden');
+            quizView.classList.remove('hidden');
+            mainViewBtn.classList.remove('bg-poke-red');
+            mainViewBtn.classList.add('bg-gray-500');
+            quizModeBtn.classList.remove('bg-water-blue');
+            quizModeBtn.classList.add('bg-gray-500');
+            startQuizRound();
+        });
+
+        // --- Quiz Logic ---
+        const startQuizRound = () => {
+            quizResult.textContent = '';
+            nextQuizBtn.classList.add('hidden');
+            
+            const getRandomPokemon = () => allPokemon[Math.floor(Math.random() * allPokemon.length)];
+            let pokemon1 = getRandomPokemon();
+            let pokemon2 = getRandomPokemon();
+            while (pokemon1.id === pokemon2.id) {
+                pokemon2 = getRandomPokemon();
+            }
+            quizPokemons = [pokemon1, pokemon2];
+
+            quizContent.innerHTML = `
+                <div class="text-center w-1/2 p-2">
+                    <img src="${pokemon1.sprites.front_default}" class="w-24 h-24 mx-auto" alt="${pokemon1.name}">
+                    <h3 class="capitalize font-bold">${pokemon1.name}</h3>
+                    <button class="quiz-choice-btn mt-2 bg-poke-red hover:bg-red-700 text-white font-bold py-1 px-3 rounded-full" data-id="${pokemon1.id}">Choose</button>
+                </div>
+                <div class="font-press-start text-2xl text-electric-yellow">VS</div>
+                <div class="text-center w-1/2 p-2">
+                    <img src="${pokemon2.sprites.front_default}" class="w-24 h-24 mx-auto" alt="${pokemon2.name}">
+                    <h3 class="capitalize font-bold">${pokemon2.name}</h3>
+                    <button class="quiz-choice-btn mt-2 bg-poke-red hover:bg-red-700 text-white font-bold py-1 px-3 rounded-full" data-id="${pokemon2.id}">Choose</button>
+                </div>
+            `;
+            
+            document.querySelectorAll('.quiz-choice-btn').forEach(btn => {
+                btn.addEventListener('click', handleQuizChoice);
+            });
+        };
+
+        const handleQuizChoice = (e) => {
+            const chosenId = parseInt(e.target.dataset.id);
+            const [p1, p2] = quizPokemons;
+            
+            const p1Types = p1.types.map(t => t.type.name);
+            const p2Types = p2.types.map(t => t.type.name);
+            
+            let p1Score = 0;
+            let p2Score = 0;
+
+            // P1 attacking P2
+            p1Types.forEach(p1Type => {
+                p2Types.forEach(p2Type => {
+                    if (typeMatchups[p1Type]?.strong?.includes(p2Type)) p1Score++;
+                    if (typeMatchups[p1Type]?.weak?.includes(p2Type)) p1Score--;
+                    if (typeMatchups[p1Type]?.immune?.includes(p2Type)) p2Score = -99; // Immune is a huge disadvantage
+                });
+            });
+
+            // P2 attacking P1
+            p2Types.forEach(p2Type => {
+                p1Types.forEach(p1Type => {
+                    if (typeMatchups[p2Type]?.strong?.includes(p1Type)) p2Score++;
+                    if (typeMatchups[p2Type]?.weak?.includes(p1Type)) p2Score--;
+                    if (typeMatchups[p2Type]?.immune?.includes(p1Type)) p1Score = -99;
+                });
+            });
+            
+            let winnerId;
+            if (p1Score > p2Score) winnerId = p1.id;
+            else if (p2Score > p1Score) winnerId = p2.id;
+            else winnerId = null; // Draw
+
+            if (winnerId === null) {
+                quizResult.textContent = "It's a draw!";
+                quizResult.className = 'text-electric-yellow';
+            } else if (chosenId === winnerId) {
+                quizResult.textContent = 'Correct!';
+                quizResult.className = 'text-grass-green';
+                quizScore++;
+                quizScoreEl.textContent = quizScore;
+            } else {
+                quizResult.textContent = `Incorrect! ${allPokemon.find(p=>p.id === winnerId).name} had the advantage.`;
+                quizResult.className = 'text-poke-red';
+            }
+
+            document.querySelectorAll('.quiz-choice-btn').forEach(btn => btn.disabled = true);
+            nextQuizBtn.classList.remove('hidden');
+        };
+        
+        nextQuizBtn.addEventListener('click', startQuizRound);
+
+        // --- Initial Load ---
+        fetchAllPokemon();
+
+        // Close modal on outside click
+        modal.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.add('hidden');
+            }
+        });
+    </script>
+</body>
+</html>
